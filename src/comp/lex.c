@@ -4,6 +4,7 @@
 #include <ctype.h>
 #include <stdio.h>
 #include "lex.h"
+#include "lex_utils.h"
 
 static size_t isolate_strings(const char* script, struct string** strings) {
 
@@ -27,44 +28,34 @@ static size_t isolate_strings(const char* script, struct string** strings) {
     return strings_size;
 }
 
-static int in_strings(size_t pos, const struct string* strings, size_t strings_size) {
+static size_t isolate_keys(const char* script, const struct string* strings, size_t strings_size, struct key** keys) {
 
-    for(int i = 0; i < strings_size; i++) {
-        if(pos > strings[i].start && pos < strings[i].end) {
-            return 1;
-        }
-    }
+    size_t keys_size = 0;
 
-    return 0;
-}
-
-static size_t isolate_ops(const char* script, const struct string* strings, size_t strings_size, struct op** ops) {
-
-    size_t ops_size = 0;
-
-    char* op_types[] = {"=", "+", "-", "*", "/", "==", "!=", ">", "<", ">=", "<="};
+    char* key_targets[] = {"=", "+", "-", "*", "/", "==", "!=", ">", "<", ">=", "<=", // Operators
+                           "var", "if", "else", "while"                            }; // Keywords
     
-    for(int i = 0; i < sizeof(op_types) / sizeof(op_types[0]); i++) {
+    for(int i = 0; i < sizeof(key_targets) / sizeof(key_targets[0]); i++) {
 
-        const char* op_str = script;
-        while((op_str = strstr(op_str, op_types[i])) != 0) {
+        const char* key_str = script;
+        while((key_str = strstr(key_str, key_targets[i])) != 0) {
 
-            size_t pos = op_str - script;         
+            size_t pos = key_str - script;         
 
-            if(!in_strings(pos, strings, strings_size)) {
+            if(!in_string(pos, strings, strings_size)) {
 
-                *ops = realloc(*ops, (ops_size + 1) * sizeof(struct op));
-                ops_size++;
+                *keys = realloc(*keys, (keys_size + 1) * sizeof(struct key));
+                keys_size++;
 
-                (*ops)[ops_size - 1].type = op_types[i];
-                (*ops)[ops_size - 1].pos = pos;
+                (*keys)[keys_size - 1].type = key_targets[i];
+                (*keys)[keys_size - 1].pos = pos;
             }
 
-            op_str += strlen(op_types[i]);
+            key_str += strlen(key_targets[i]);
         }
     }
 
-    return ops_size;
+    return keys_size;
 }
 
 static size_t isolate_nums(const char* script, const struct string* strings, size_t strings_size, struct num** nums) {
@@ -76,7 +67,7 @@ static size_t isolate_nums(const char* script, const struct string* strings, siz
 
         size_t pos = c - script;
 
-        if((isdigit(*c) || (*c == '-' && isdigit(*(c + 1)))) && !in_strings(pos, strings, strings_size) && !isalpha(*(c - 1))) {
+        if((isdigit(*c) || (*c == '-' && isdigit(*(c + 1)))) && !in_string(pos, strings, strings_size) && !isalpha(*(c - 1))) {
 
             *nums = realloc(*nums, (nums_size + 1) * sizeof(struct num));
             nums_size++;
@@ -90,6 +81,13 @@ static size_t isolate_nums(const char* script, const struct string* strings, siz
     return nums_size;
 }
 
+static size_t isolate_vars() {
+
+    size_t vars_size = 0;
+
+    return vars_size;
+}
+
 void lex(const char* script) {
 
     struct string* strings = 0;
@@ -97,25 +95,26 @@ void lex(const char* script) {
 
     puts("Strings:");
     for(int i = 0; i < strings_size; i++) {
-        printf("Start: %I64d\tEnd: %I64d\n", strings[0].start, strings[0].end);
+        printf("Start: %I64d   End: %I64d\n", strings[0].start, strings[0].end);
     }
 
-    struct op* ops = 0;
-    size_t ops_size = isolate_ops(script, strings, strings_size, &ops);
+    struct key* keys = 0;
+    size_t keys_size = isolate_keys(script, strings, strings_size, &keys);
 
-    puts("Ops: ");
-    for(int i = 0; i < ops_size; i++) {
-        printf("Type: %s\tPos: %I64d\n", ops[i].type, ops[i].pos);
+    puts("Keys: ");
+    for(int i = 0; i < keys_size; i++) {
+        printf("Type: %s   Pos: %I64d\n", keys[i].type, keys[i].pos);
     }
 
     struct num* nums = 0;
     size_t nums_size = isolate_nums(script, strings, strings_size, &nums);
 
+    puts("Nums: ");
     for(int i = 0; i < nums_size; i++) {
-        printf("Val: %ld\tPos: %I64d\n", nums[i].val, nums[i].pos);
+        printf("Val: %ld   Pos: %I64d\n", nums[i].val, nums[i].pos);
     }
 
     free(strings);
-    free(ops);
+    free(keys);
     free(nums);
 }

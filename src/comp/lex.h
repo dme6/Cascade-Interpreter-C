@@ -7,13 +7,19 @@ struct string {
     size_t end;
 };
 
-struct op {
+// Represents both keywords and operators.
+struct key {
     char* type;
     size_t pos;
 };
 
 struct num {
     long val;
+    size_t pos;
+};
+
+struct var {
+    char* name;
     size_t pos;
 };
 
