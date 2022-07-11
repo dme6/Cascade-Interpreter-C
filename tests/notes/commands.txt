@@ -1,0 +1,1 @@
+mingw32-make -C ./tests run SNIPPET=1 "ARGS=./scripts/variables.cas"

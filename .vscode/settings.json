@@ -1,0 +1,8 @@
+{
+    "files.associations": {
+        "*.ejs": "html",
+        "log.h": "c",
+        "list.h": "c",
+        "stddef.h": "c"
+    }
+}
