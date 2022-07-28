@@ -1,7 +1,9 @@
 #include <stdlib.h>
 #include <stdio.h>
 #include "../include/cascade.h"
-#include "comp/lex.h"
+#include "core/lex.h"
+
+// TODO: Add context struct.
 
 void interpret_file(const char* path) {
 

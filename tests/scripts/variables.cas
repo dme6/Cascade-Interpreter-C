@@ -1,3 +1,7 @@
-var a1 = 1;
-var b = "Hello";
-var c = 1 + 2;
+var a1 = 1
+var b = "Hello"
+var c = 1 + 2
+
+var fucn1 = {
+    print("Thy mother")
+}

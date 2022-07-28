@@ -18,9 +18,9 @@ static size_t isolate_strings(const char* script, struct string** strings) {
         *strings = realloc(*strings, (strings_size + 1) * sizeof(struct string));
         strings_size++;
 
-        (*strings)[strings_size - 1].start = quote - script;
+        (*strings)[strings_size - 1].base.start = quote - script + 1;
         quote = strchr(quote + 1, '"');
-        (*strings)[strings_size - 1].end = quote - script;
+        (*strings)[strings_size - 1].base.end = quote - script - 1;
 
         quote++;
     }
@@ -33,7 +33,8 @@ static size_t isolate_keys(const char* script, const struct string* strings, siz
     size_t keys_size = 0;
 
     char* key_targets[] = {"=", "+", "-", "*", "/", "==", "!=", ">", "<", ">=", "<=", // Operators
-                           "var", "if", "else", "while"                            }; // Keywords
+                           "var", "if", "else", "while",                              // Keywords
+                           ",", "(", ")", "{", "}"};                                  // etc.                                                         
     
     for(int i = 0; i < sizeof(key_targets) / sizeof(key_targets[0]); i++) {
 
@@ -48,7 +49,8 @@ static size_t isolate_keys(const char* script, const struct string* strings, siz
                 keys_size++;
 
                 (*keys)[keys_size - 1].type = key_targets[i];
-                (*keys)[keys_size - 1].pos = pos;
+                (*keys)[keys_size - 1].base.start = pos;
+                (*keys)[keys_size - 1].base.end = pos + strlen(key_targets[i]) - 1;
             }
 
             key_str += strlen(key_targets[i]);
@@ -71,8 +73,9 @@ static size_t isolate_nums(const char* script, const struct string* strings, siz
 
             *nums = realloc(*nums, (nums_size + 1) * sizeof(struct num));
             nums_size++;
-            (*nums)[nums_size - 1].pos = pos;
-            (*nums)[nums_size - 1].val = strtol(c, (char**) &c, 10); // Strtol shouldn't modify the pointee of EndPtr.
+            (*nums)[nums_size - 1].base.start = pos;
+            (*nums)[nums_size - 1].val = strtol(c, (char**) &c, 10); // Strtol shouldn't modify the pointee of variable c.
+            (*nums)[nums_size - 1].base.end = c - script - 1;
         } else {
             c++;
         }
@@ -81,9 +84,42 @@ static size_t isolate_nums(const char* script, const struct string* strings, siz
     return nums_size;
 }
 
-static size_t isolate_vars() {
+static size_t isolate_vars(const char* script,
+                           const struct string* strings,
+                           size_t strings_size,
+                           const struct key* keys,
+                           size_t keys_size,
+                           const struct num* nums,
+                           size_t nums_size,
+                           struct var** vars) {
 
     size_t vars_size = 0;
+    size_t char_counter = 0;
+
+    const char* c = script;
+    while(*c) {
+
+        size_t pos = c - script;
+
+        if((isalpha(*c) || isdigit(*c)) && !in_string(pos, strings, strings_size) && !in_key(pos, keys, keys_size) && !in_num(pos, nums, nums_size)) {
+
+            if(char_counter == 0) {
+                *vars = realloc(*vars, (vars_size + 1) * sizeof(struct var));
+                vars_size++; 
+                (*vars)[vars_size - 1].base.start = pos;
+            }
+
+            char_counter++;
+
+        } else {
+            if(char_counter > 0) {
+                (*vars)[vars_size - 1].base.end = pos - 1;
+                char_counter = 0;
+            }
+        }
+
+        c++;
+    }
 
     return vars_size;
 }
@@ -95,7 +131,7 @@ void lex(const char* script) {
 
     puts("Strings:");
     for(int i = 0; i < strings_size; i++) {
-        printf("Start: %I64d   End: %I64d\n", strings[0].start, strings[0].end);
+        printf("Start: %I64d   End: %I64d\n", strings[i].base.start, strings[i].base.end);
     }
 
     struct key* keys = 0;
@@ -103,7 +139,7 @@ void lex(const char* script) {
 
     puts("Keys: ");
     for(int i = 0; i < keys_size; i++) {
-        printf("Type: %s   Pos: %I64d\n", keys[i].type, keys[i].pos);
+        printf("Type: %s   Start: %I64d   End: %I64d\n", keys[i].type, keys[i].base.start, keys[i].base.end);
     }
 
     struct num* nums = 0;
@@ -111,8 +147,18 @@ void lex(const char* script) {
 
     puts("Nums: ");
     for(int i = 0; i < nums_size; i++) {
-        printf("Val: %ld   Pos: %I64d\n", nums[i].val, nums[i].pos);
+        printf("Val: %ld   Start: %I64d   End: %I64d\n", nums[i].val, nums[i].base.start, nums[i].base.end);
     }
+
+    struct var* vars = 0;
+    size_t vars_size = isolate_vars(script, strings, strings_size, keys, keys_size, nums, nums_size, &vars);
+
+    puts("Vars: ");
+    for(int i = 0; i < vars_size; i++) {
+        printf("Start: %I64d   End: %I64d\n", vars[i].base.start, vars[i].base.end);
+    }
+
+    
 
     free(strings);
     free(keys);
